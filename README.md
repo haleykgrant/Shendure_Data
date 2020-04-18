@@ -34,6 +34,15 @@ The samtools software can be installed using one of the following commands:
 
 `conda install -c bioconda/label/cf201901 samtools`
 
+## all_files.txt
+
+Text file with names of files produced from `get_positions.sh` that will be used to get the names of files that need to be cleaned in  `clean_positions.sh`
+
+## clean_positions.sh
+
+Shell script to remove any lines that are either not aligned (chromosome column will be a * in the "all.txt" files) or have length reported as negative (from 2nd paired end read). This script helps clean the files in `all_files.txt` (output from `get_positions.sh`) to reduce file size to only include rows with useful information.
+
+
 
 
 
