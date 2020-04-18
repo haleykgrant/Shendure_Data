@@ -169,7 +169,7 @@ __Output to either chr_lassoregions_dist or chr_10regions_dist.__
 
 ## fragmentation_shendure.Rmd
 
-*I ran this one locally so the directories do not align with the server directories where these data are processed
+*I ran this one locally so the directories do not align with the server directories where these data are processed*
 
 R markdown file to plot the distribution of lengths of fragments from the Shendure data compared to estimated fragmentation intensities (lambdas) in DETECT data. 
 
