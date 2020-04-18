@@ -5,7 +5,7 @@ Each file has a description of its contents as well as the location of the file 
 
 The directory `shendure` is where all files (scripts and data files) for downloading and processing the Shendure data are located. These are all run remotely on a HPC cluster. Other files are located on my local computer and are used for displaying the output in local markdown files. 
 
-Description on files:
+Description of files:
 
 # DATA
 
@@ -102,7 +102,7 @@ __Directory: shendure__
  
 __Directory: shendure__
  
- This is a shell script to run bowtie to align samples from the files downloaded in srr_download.sh. It uses hg19 as a reference with maximum insert size limit set at 800bp. The script produces SAM files (file extention `.sam`), which we will use to extract information about the samples.
+ This is a shell script to run bowtie to align samples from the files downloaded in srr_download.sh. It uses hg19 as a reference with maximum insert size limit set at 800bp. The script produces SAM files (file extension `.sam`), which we will use to extract information about the samples.
 
 The bowtie software can be installed using one of the following commands:
  
@@ -118,11 +118,11 @@ __Output to shendure/sam_files directory.__
 
 __Directory: shendure/sam_files__
 
-This is a shell script that uses the outputed .sam filed from `bowtie_align.sh` to extract the 3rd, 4th, and 9th columns of the SAM files, corresponding to:
+This is a shell script that uses the outputted .sam filed from `bowtie_align.sh` to extract the 3rd, 4th, and 9th columns of the SAM files, corresponding to:
 
 * 3: chromosome number (reference name)
 * 4: position (base pair position along reference)
-* 9: length of fragment (nferred insert size)
+* 9: length of fragment (inferred insert size)
 
 The samtools software can be installed using one of the following commands:
 
@@ -154,7 +154,7 @@ Shell script to run `process_all.R` script in parallel. Header line `t 1-53` spe
 
 __Output to shendure directory.__
 
-After getting all csv files I organize place them into a new directory `shendure/processed_data` then make separate chromosome directories `shendure/processed_data/chr1`,...,`shendure/processed_data/chr22`, each with 53 files containing fragment length and poisition information for each sample.
+After getting all csv files I organize place them into a new directory `shendure/processed_data` then make separate chromosome directories `shendure/processed_data/chr1`,...,`shendure/processed_data/chr22`, each with 53 files containing fragment length and position information for each sample.
 
 ## process_region_dist.R
 
