@@ -66,8 +66,23 @@ __Used in:__ `process_shendure_amps.R`
 
 This is an R data file with a data frame containing a list of amplicons selected after two round of pruning (from total amplicon list in `chris_amps.rds`) with each amplicon's length, start, and stop position.
 
+## IntensityFrag (Directory)
 
+__Used in:__ `process_region_dist.R`
 
+This is a directory with files indicating the estimated fragmentation intensities (lambda) within each of the 10 regions on each chromosome. The directory contains CSV files with rows indicating the estimated lambdas for each patient in the DETECT dataset (not included in this repository).
+
+## LambdasCancerLasso (Directory)
+
+__Used in:__ `fragmentation_shendure.Rmd`
+
+This is a directory with files indicating the estimated fragmentation intensities (lambda) within each of the lasso-selected regions (18-20 regions) on each chromosome. The directory contains CSV files with rows indicating the estimated lambdas for each cancer patient in the DETECT dataset (not included in this repository).
+
+## LambdasNormalLasso (Directory)
+
+__Used in:__  `fragmentation_shendure.Rmd`
+
+This is a directory with files indicating the estimated fragmentation intensities (lambda) within each of the lasso-selected regions (18-20 regions) on each chromosome. The directory contains CSV files with rows indicating the estimated lambdas for each healthy patient in the DETECT dataset (not included in this repository).
 
 
 # Scripts (R and shell)
@@ -148,6 +163,13 @@ __Directory : shendure__
 This R script takes sample information by chromosome and summarizes the data in the following way: for each chromosome we read in one file per sample. For each sample we group its (fragment) reads into regions (either lasso 18-20 or arbitrary 10 regions) then compute summary statistics for each region. These summary statistics include the mean fragment length as well as percentiles from 10th-90th percentile (increments of 10). We then combine all information for that chromosome to get a CSV file with one row per region and sample for a total of either 10 $\times$ 53 or 18-20 $\times$ 53 rows per chromosome file.
 
 __Output to either chr_lassoregions_dist or chr_10regions_dist.__
+
+
+## fragmentation_shendure.Rmd
+
+*I ran this one locally so the directories do not align with the server directories where these data are processed
+
+R markdown file to plot the distribution of lengths of fragments from the Shendure data compared to estimated fragmentation intensities (lambdas) in DETECT data. 
 
 
 
