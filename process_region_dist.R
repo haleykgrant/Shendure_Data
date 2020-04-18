@@ -4,6 +4,8 @@ library(readr)
 library(janitor)
 library(data.table)
 
+
+
 # j indicates chromosome number (1-22)
 j = as.integer(Sys.getenv("SGE_TASK_ID"))
 chrom_dir = paste("chr",j,sep="")
@@ -142,7 +144,17 @@ dat = read.csv(paste(d,file,sep = ""))%>%
     chr = bind_rows(chr,dat)
   }
 }
+# write output file for this chromosome
 
-# write file with output
+if(lasso){
 fwrite(chr, paste("/data/nfs1/home/hgrant3/cancer_seek/shendure/chr_lassoregions_dist/chr",
                   j,".csv",sep = ""))
+
+}
+
+if(!lasso){
+
+fwrite(chr, paste("/data/nfs1/home/hgrant3/cancer_seek/shendure/chr_10region_dist/chr",
+                  j,".csv",sep = ""))
+
+}
