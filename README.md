@@ -79,9 +79,29 @@ __Output to shendure directory.__
 
 After getting all csv files I organize place them into a new directory `shendure/processed_data` then make separate chromosome directories `shendure/processed_data/chr1`,...,`shendure/processed_data/chr22`, each with 53 files containing fragment length and poisition information for each sample.
 
+## RegionsOfAmplicons (Directory)
 
+This directory contains files indicating the regions that each chromosome will be split into. The files (one per chromosome) indicate which of 10 regions each amplicon (from another dataset) falls into. To get the rough boundaries of each region, sort by region number and take the min and max of the "End" column. 
 
+## RegionsOfAmpliconsLasso (Directory)
 
+Similar to RegionsOfAmplicons. This directory contains files indicating the regions that each chromosome will be split into, with regions being selected using a Lasso method (not described here). The files (one per chromosome) indicate which of 18-20 regions each amplicon (from another dataset) falls into. To get the rough boundaries of each region, sort by region number and take the min and max of the "End" column. 
+
+## SraRunTable.txt
+
+__Directory : shendure__
+
+This is a text file containing the sample information about each sample pulled in `srr_download.sh` including disease status, gender, etc.
+
+## process_region_dist.R
+
+__Directory : shendure__
+
+*Need to make output directories `chr_lassoregions_dist` and `chr_10regions_dist` before running!*
+
+This R script takes sample information by chromosome and summarizes the data in the following way: for each chromosome we read in one file per sample. For each sample we group its (fragment) reads into regions (either lasso 18-20 or arbitrary 10 regions) then compute summary statistics for each region. These summary statistics include the mean fragment length as well as percentiles from 10th-90th percentile (increments of 10). We then combine all information for that chromosome to get a CSV file with one row per region and sample for a total of either 10 $\times$ 53 or 18-20 $\times$ 53 rows per chromosome file.
+
+__Output to either chr_lassoregions_dist or chr_10regions_dist.__
 
 
 
