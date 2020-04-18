@@ -1,0 +1,504 @@
+---
+title: "Fragmentation by Chromosome"
+author: "Haley Grant"
+date: "3/27/2020"
+output: 
+  html_document:
+    code_folding: "hide"
+    toc: TRUE
+    toc_float: TRUE
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r message=F, warning=F}
+library(tidyverse)
+library(janitor)
+library(dplyr)
+library(readr)
+library(ggplot2)
+library(distrEx)
+library(knitr)
+library(kableExtra)
+``` 
+
+# Original 10 Regions 
+The plots below show the distirbution of fragment lengths across the 10 regions (per chromosome) that Kamel identified. Details:
+
+* The boxplots show the distribtution of fragment lengths across normal and cancer samples within each reagion of the specified chromosome.
+* Because each sample has many reads per region, I use summary statistics for each distribution (within a sample, length of reads in region i of chromosome j). The summary statistics used in the plots are: mean, 10th percentile, median, and 90th percentile.
+* The $\times$ marks show the estimated (average over samples) value of $1/\lambda$ for each region.
+* The colors indicate cancer status. There are 4 healthy samples (first is a mix of many individuals, I believe) and about 40 cancer samples.
+
+
+```{r message=F, warning=F}
+d = "/Users/haleygrant/cancer_seek/data/shendure_data/chr_10region_dist"
+
+chrom_files = paste("chr",seq(1,22),".csv",sep="")
+
+
+
+
+```
+
+```{r warning=F, message=F}
+
+lvls = c()
+for(i in 1:10){
+  c = paste("r",i,"_cancer", sep = "")
+  n = paste("r",i,"_normal",sep = "")
+  lvls =rbind(lvls,c,n)
+}
+
+
+
+p =vector(mode = "list",length = 22)
+cor_plt =vector(mode = "list",length = 22)
+fit =vector(mode = "list",length = 22)
+cors =vector(mode = "list",length = 22)
+
+
+
+for(i in 1:length(chrom_files)){
+  file = chrom_files[i]
+  
+  oldnames = paste("score",c("",paste(".",seq(1,9),sep="")),sep = "")
+newnames = paste("r",seq(1,10),sep = "")
+
+lambda_cancer = read_csv(paste("/Users/haleygrant/cancer_seek/data/Kamel_data/IntensityFragmentationNormalsCancers/LambdaDetectCancersFirst",i,".csv",sep = "")
+                         )%>%
+              rename_at(vars(oldnames), ~ newnames)%>%
+              pivot_longer(3:12, names_to = "region", values_to = "score")%>%
+              mutate(region = factor(region, levels = paste("r",seq(1,10) ,sep="")))
+lambda_normal = read_csv(paste("/Users/haleygrant/cancer_seek/data/Kamel_data/IntensityFragmentationNormalsCancers/LambdaDetectNormalsFirst",i,".csv",sep = "")
+                         )%>%
+              rename_at(vars(oldnames), ~ newnames)%>%
+              pivot_longer(3:12, names_to = "region", values_to = "score")%>%
+              mutate(region = factor(region, levels = paste("r",seq(1,10) ,sep="")))
+
+
+
+lambda = lambda_cancer%>%
+  mutate(score = ifelse(score<=0,.001,score))%>%
+  group_by(region)%>%
+  summarise(lambda_inv = median(1/score, na.rm = T))%>%
+  mutate(disease_status = "cancer")%>%
+  bind_rows(lambda_normal%>%
+              mutate(score= ifelse(score<=0,.001,score))%>%
+  group_by(region)%>%
+  summarise(lambda_inv = median(1/score, na.rm = T))%>%
+  mutate(disease_status = "normal"))
+  
+  
+ df = read_csv(paste(d,"/",file,sep = ""))%>%
+   full_join(lambda, by = c("region","disease_status"))%>%
+    mutate(region = factor(region, levels = paste("r",seq(1,10),sep = "")))%>%
+    pivot_longer(4:13, names_to = "stat", values_to = "length")%>%
+    mutate(region = paste(region, disease_status,sep="_"))%>%
+    mutate(region = factor(region, levels =lvls))%>%
+    filter(stat %in% c("mean_length","perc_10","perc_50","perc_90"))
+
+ p[[i]]=df%>%
+    ggplot(aes(x = region, y = length, color = disease_status))+
+    geom_boxplot()+
+   geom_point(aes(x = region, y = lambda_inv, color = disease_status), 
+              shape = 4)+
+    theme_bw()+
+    scale_x_discrete(labels=gsub( "_.*", "", lvls))+
+    scale_y_continuous(sec.axis = sec_axis(~., name ="1/lambda (mean)"))+
+    theme(legend.position = "bottom", 
+          axis.text.x = element_text(angle = 45, size = 8))+
+    facet_wrap(.~stat, scales = "free_y")+
+    labs(title = paste("Chromosome",i))
+
+df_lm = df%>%
+  group_by(stat, disease_status,region)%>%
+  summarise(lambda_inv = ifelse(mean(lambda_inv, na.rm = T)<0,0,mean(lambda_inv,na.rm = T)),
+            length= mean(length, na.rm = T))%>%
+  filter(lambda_inv <125)%>%
+  mutate(region = gsub("_.*",replacement = "", region))
+  
+cor_plt[[i]] = df_lm%>%
+  ggplot(aes(x = lambda_inv, y = length))+
+  geom_point(aes(color = disease_status))+
+  theme_bw()+
+  labs(x = "1/lambda")+
+  geom_smooth(method = "lm", aes(color = disease_status))+
+  facet_wrap(.~stat, scales = "free_y")
+
+
+
+
+
+#correlation
+c_mn = df_lm%>%
+  na.omit()%>%
+  ungroup()%>%
+  filter(stat=="mean_length")%>%
+  select(lambda_inv, length)%>%
+  as.matrix()%>%
+  cor(method = "spearman")
+c_med = df_lm%>%
+  na.omit()%>%
+  ungroup()%>%
+  filter(stat=="perc_50")%>%
+  select(lambda_inv, length)%>%
+  as.matrix()%>%
+  cor(method = "spearman")
+cors[[i]] = data.frame(mn_cor = round(c_mn[1,2],digits = 3), med_cor = round(c_med[1,2],digits = 3))
+}
+
+
+
+
+
+
+for(i in 1:22){
+  print(p[[i]])
+  print(cor_plt[[i]])
+
+  
+print(paste("Correlation between 1/lambda and mean length:", cors[[i]]))
+}
+
+data.frame(matrix(unlist(cors), nrow=length(cors), byrow=T))%>%
+  rename(`Mean Correlation` = X1, `Median Correlation` = X2)%>%
+  mutate(Chromosome = seq(1,22))%>%
+  select("Chromosome", `Mean Correlation`,`Median Correlation`)%>%
+  kable(align = "c")%>%
+  kableExtra::kable_styling(bootstrap_options = c("striped","hover"), full_width = F)
+```
+# New regions from Kamel
+
+```{r message=F, warning=F}
+d_lasso = "/Users/haleygrant/cancer_seek/data/shendure_data/chr_lassoregions_dist"
+
+chrom_files = paste("chr",seq(1,22),".csv",sep="")
+
+
+```
+
+```{r warning=F, message=F}
+
+
+p =vector(mode = "list",length = 22)
+cor_plt =vector(mode = "list",length = 22)
+fit =vector(mode = "list",length = 22)
+cors_lasso =vector(mode = "list",length = 22)
+  
+  all_chrom = data.frame(stat = NULL, disease_status = NULL, region = NULL, lambda_inv = NULL, length = NULL, sd_length = NULL, sd_lambda = NULL)
+  
+for(i in 1:length(chrom_files)){
+  file = chrom_files[i]
+
+
+lambda_cancer = read_csv(paste("/Users/haleygrant/cancer_seek/data/Kamel_data/LambdasCancerLasso/LambdaSeekCancersFirstLasso",i,".csv",sep = "")
+                         )
+nregions = ncol(lambda_cancer)-2
+oldnames = paste("score",c("",paste(".",seq(1,nregions-1),sep="")),sep = "")
+newnames = paste("r",seq(1,nregions),sep = "")
+
+lambda_cancer = lambda_cancer%>%
+              rename_at(vars(oldnames), ~ newnames)%>%
+              pivot_longer(3:ncol(lambda_cancer), names_to = "region", values_to = "score")%>%
+              mutate(region = factor(region, levels = paste("r",seq(1,20) ,sep="")))
+lambda_normal = read_csv(paste("/Users/haleygrant/cancer_seek/data/Kamel_data/LamdasNormalLasso/LambdaDetectNormalsFirstLasso",i,".csv",sep = "")
+                         )
+
+
+lambda_normal = lambda_normal%>%
+              rename_at(vars(oldnames), ~ newnames)%>%
+              pivot_longer(3:ncol(lambda_normal), names_to = "region", values_to = "score")%>%
+              mutate(region = factor(region, levels = paste("r",seq(1,20) ,sep="")))
+
+
+
+lambda = lambda_cancer%>%
+  mutate(score = ifelse(score<=0,.001,score))%>%
+  group_by(region)%>%
+  filter(score>.002)%>%
+  summarise(sd_lambda = sd(1/score, na.rm = T), 
+            lambda_inv = median(1/score, na.rm = T))%>%
+  mutate(disease_status = "cancer")%>%
+  bind_rows(lambda_normal%>%
+              mutate(score = ifelse(score<=0,.001,score))%>%
+  group_by(region)%>%
+    filter(score>.002)%>%
+  summarise(sd_lambda = sd(1/score, na.rm = T),
+            lambda_inv = median(1/score, na.rm = T))%>%
+  mutate(disease_status = "normal"))
+  
+ df = read_csv(paste(d_lasso,"/",file,sep = ""))%>%
+   left_join(lambda, 
+             by = c("region","disease_status"))%>%
+    mutate(region = factor(region, levels = paste("r",seq(1,20),sep = "")))%>%
+    pivot_longer(4:13, names_to = "stat", values_to = "length")%>%
+    mutate(region = paste(region, disease_status,sep="_"))%>%
+    filter(stat %in% c("mean_length","perc_10","perc_50","perc_90"))
+  
+
+  lvls = c()
+for(j in 1:nregions){
+  c = paste("r",j,"_cancer", sep = "")
+  n = paste("r",j,"_normal",sep = "")
+  lvls =rbind(lvls,c,n)
+}
+
+ p[[i]]=df%>%
+    ggplot(aes(x = region, y = length, color = disease_status))+
+    geom_boxplot()+
+   geom_point(aes(x = region, y = lambda_inv, color = disease_status), 
+              shape = 4)+
+    theme_bw()+
+    scale_x_discrete(labels=gsub("r*","",gsub( "_.*", "", lvls)))+
+    scale_y_continuous(sec.axis = sec_axis(~., name ="1/lambda (mean)"))+
+    theme(legend.position = "bottom", 
+          axis.text.x = element_text(angle = 45, size = 8))+
+    facet_wrap(.~stat, scales = "free_y")+
+    labs(title = paste("Chromosome",i))
+
+ 
+df_lm = df%>%
+  group_by(stat, disease_status,region)%>%
+  summarise(lambda_inv = ifelse(mean(lambda_inv, na.rm = T)<0,0,mean(lambda_inv,na.rm = T)),
+                                sd_lambda = first(sd_lambda),
+                                sd_length = sd(length, na.rm = T),
+            length= mean(length, na.rm = T))%>%
+  filter(lambda_inv<125)%>%
+  mutate(region = gsub("_.*",replacement = "", region), chrom = i)
+
+  all_chrom = bind_rows(all_chrom,df_lm)
+
+  cor_plt[[i]] = df_lm%>%
+  ggplot(aes(x = lambda_inv, y = length))+
+  geom_point(aes(color = disease_status))+
+  labs(x = "1/lambda")+
+  theme_bw()+
+  geom_smooth(method = "lm", aes(color = disease_status))+
+  facet_wrap(.~stat, scales = "free_y")
+
+
+#correlation
+c_mn = df_lm%>%
+  ungroup()%>%
+  filter(stat=="mean_length")%>%
+  select(lambda_inv, length)%>%
+  as.matrix()%>%
+  cor(method = "spearman")
+c_med = df_lm%>%
+  ungroup()%>%
+  filter(stat=="perc_50")%>%
+  select(lambda_inv, length)%>%
+  as.matrix()%>%
+  cor(method = "spearman")
+
+
+cors_lasso[[i]] = data.frame(mn_cor = round(c_mn[1,2],digits = 3), med_cor = round(c_med[1,2],digits = 3))
+}
+
+
+
+
+for(i in 1:22){
+  print(p[[i]])
+  print(cor_plt[[i]])
+}
+
+
+data.frame(matrix(unlist(cors_lasso), nrow=length(cors_lasso), byrow=T))%>%
+  rename(`Mean Correlation` = X1, `Median Correlation` = X2)%>%
+  mutate(Chromosome = seq(1,22))%>%
+  select("Chromosome", `Mean Correlation`,`Median Correlation`)%>%
+  kable(align = "c")%>%
+  kableExtra::kable_styling(bootstrap_options = c("striped","hover"), full_width = F)
+
+
+all_chrom%>%
+  mutate(chrom = as.character(chrom))%>%
+  ggplot(aes(x = lambda_inv, y = length))+
+  geom_point(size = 1, aes(color = chrom))+
+  theme_bw()+
+  facet_wrap(.~stat, scales = "free")
+
+all_chrom%>%
+  mutate(chrom = as.character(chrom))%>%
+  ggplot(aes(x = sd_lambda, y = sd_length))+
+  geom_point(size = 1, aes(color = chrom))+
+  theme_bw()+
+  facet_wrap(.~stat, scales = "free")
+  
+all_chrom%>%
+  group_by(stat)%>%
+  summarise(cor = cor(lambda_inv, length, method = "spearman"))
+
+  
+all_chrom%>%
+  group_by(stat)%>%
+  na.omit()%>%
+  summarise(cor = cor(sd_length, sd_lambda, method = "spearman"))
+
+
+
+
+print("Distribution of correlations for Lasso regions")
+matrix(unlist(cors_lasso), nrow=length(cors_lasso), byrow=T)%>%summary()
+print("Distribution of correlations for 10 regions")
+matrix(unlist(cors), nrow=length(cors), byrow=T)%>%summary()
+```
+
+# Cancer - Normals (difference)
+
+
+```{r warning=F, message=F}
+
+
+p =vector(mode = "list",length = 22)
+cors_diff =vector(mode = "list",length = 22)
+  
+all_chrom_diff = data.frame(stat = NULL, region = NULL, lambda_inv = NULL, length = NULL)
+  
+for(i in 1:length(chrom_files)){
+  file = chrom_files[i]
+
+
+lambda_cancer = read_csv(paste("/Users/haleygrant/cancer_seek/data/Kamel_data/LambdasCancerLasso/LambdaSeekCancersFirstLasso",i,".csv",sep = "")
+                         )
+nregions = ncol(lambda_cancer)-2
+oldnames = paste("score",c("",paste(".",seq(1,nregions-1),sep="")),sep = "")
+newnames = paste("r",seq(1,nregions),sep = "")
+
+lambda_cancer = lambda_cancer%>%
+              rename_at(vars(oldnames), ~ newnames)%>%
+              pivot_longer(3:ncol(lambda_cancer), names_to = "region", values_to = "score")%>%
+              mutate(region = factor(region, levels = paste("r",seq(1,20) ,sep="")))
+lambda_normal = read_csv(paste("/Users/haleygrant/cancer_seek/data/Kamel_data/LamdasNormalLasso/LambdaDetectNormalsFirstLasso",i,".csv",sep = "")
+                         )
+
+
+lambda_normal = lambda_normal%>%
+              rename_at(vars(oldnames), ~ newnames)%>%
+              pivot_longer(3:ncol(lambda_normal), names_to = "region", values_to = "score")%>%
+              mutate(region = factor(region, levels = paste("r",seq(1,20) ,sep="")))
+
+
+
+lambda = lambda_cancer%>%
+  mutate(score = ifelse(score<=0,.001,score))%>%
+  group_by(region)%>%
+  summarise(lambda_inv = median(1/score, na.rm = T))%>%
+  mutate(disease_status = "cancer")%>%
+  bind_rows(lambda_normal%>%
+              mutate(score = ifelse(score<=0,.001,score))%>%
+  group_by(region)%>%
+  summarise(lambda_inv = median(1/score, na.rm = T))%>%
+  mutate(disease_status = "normal"))
+  
+ df = read_csv(paste(d_lasso,"/",file,sep = ""))%>%
+   left_join(lambda, 
+             by = c("region","disease_status"))%>%
+    mutate(region = factor(region, levels = paste("r",seq(1,20),sep = "")))%>%
+    pivot_longer(4:13, names_to = "stat", values_to = "length")%>%
+    filter(stat %in% c("mean_length","perc_10","perc_50","perc_90"))%>%
+   group_by(disease_status, region, stat)%>%
+   summarise( length = mean(length), lambda_inv = mean(lambda_inv))%>%
+   pivot_wider(names_from = disease_status, 
+               values_from = c("length","lambda_inv"))%>%
+   group_by(region, stat)%>%
+   filter(lambda_inv_normal < 125 &lambda_inv_cancer <125 )%>%
+   mutate(length= length_normal-length_cancer,
+             lambda_inv = lambda_inv_normal - lambda_inv_cancer)%>%
+   select(region, stat, length, lambda_inv)
+   
+ all_chrom_diff = bind_rows(all_chrom_diff,df)
+  
+ p[[i]]=df%>%
+    ggplot()+
+    geom_point(aes(y = length, x = lambda_inv))+
+    theme_bw()+
+    theme(legend.position = "none", 
+          axis.text.x = element_text(angle = 45, size = 8))+
+    facet_wrap(.~stat, scales = "free")+
+    labs(title = paste("Chromosome",i))
+
+ 
+
+
+
+#correlation
+c_mn = df%>%
+  na.omit()%>%
+  ungroup()%>%
+  filter(stat=="mean_length")%>%
+  select(lambda_inv, length)%>%
+  as.matrix()%>%
+  cor(method = "spearman")
+
+c_med = df%>%
+  na.omit()%>%
+  ungroup()%>%
+  filter(stat=="perc_50")%>%
+  select(lambda_inv, length)%>%
+  as.matrix()%>%
+  cor(method = "spearman")
+cors_diff[[i]] = data.frame(mn_cor = round(c_mn[1,2],digits = 3), med_cor = round(c_med[1,2],digits = 3))
+}
+
+
+
+
+for(i in 1:22){
+  print(p[[i]])
+}
+
+
+data.frame(matrix(unlist(cors_diff), nrow=length(cors_diff), byrow=T))%>%
+  rename(`Mean Correlation` = X1, `Median Correlation` = X2)%>%
+  mutate(Chromosome = seq(1,22))%>%
+  select("Chromosome", `Mean Correlation`,`Median Correlation`)%>%
+  kable(align = "c")%>%
+  kableExtra::kable_styling(bootstrap_options = c("striped","hover"), full_width = F)
+
+
+all_chrom_diff%>%
+  group_by(stat)%>%
+  summarise(cor = cor(lambda_inv, length, method = "spearman"))
+  
+```
+
+# Region widths
+
+```{r message=FALSE, warning=FALSE}
+widths = data.frame(chrom = NULL, region = NULL, width = NULL)
+for(j in 1:22){
+
+regions_dir = "/Users/haleygrant/cancer_seek/data/Kamel_data/AmpliconLassoRegions/"
+regions = read_csv(paste(regions_dir,"RegionsOfAmpliconsLasso",j,".csv",sep = ""))
+
+
+region_boundaries = regions%>%
+  clean_names()%>%
+  mutate(region = paste("r",region,sep = ""),
+         region = factor(region, levels = c(paste("r",seq(1,20),sep=""))))%>%
+  group_by(region)%>%
+  summarise(min = min(end, na.rm = T),
+            max = max(end, na.rm = T))%>%
+  mutate(width = max - min, chrom = j)
+  
+
+widths = bind_rows(widths, region_boundaries%>%select(chrom, region, width))
+
+}
+widths%>%
+  mutate(chrom = factor(chrom, levels = as.character(seq(1:22))))%>%
+  mutate(chrom_grp = ifelse(as.numeric(chrom)<6, "Chrom 1-5", ifelse(as.numeric(chrom)<10, "Chrom 6-10", ifelse(as.numeric(chrom)<17, "Chrom 11-16","Chrom 17-22"))))%>%
+  ggplot(aes(x = width, color = chrom, group = chrom))+
+  geom_density(aes(color = chrom))+
+  theme_bw()+
+  labs(title = "Width of Regions")+
+  facet_wrap(.~chrom_grp, scales = "free_y")
+
+
+
+```
