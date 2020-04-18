@@ -3,6 +3,8 @@ Code for downloading, cleaning, and analyzing fragmentation data from Shendure p
 
 Each file has a description of its contents as well as the location of the file and the location of the output.
 
+The directory `shendure` is where all files (scripts and data files) for downloading and processing the Shendure data are located. These are all run remotely on a HPC cluster. Other files are located on my local computer and are used for displaying the output in local markdown files. 
+
 Description on files:
 
 # DATA
